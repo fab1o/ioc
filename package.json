@@ -1,0 +1,28 @@
+{
+    "name": "ioc",
+    "version": "0.0.1",
+    "description": "IoC container for JavaScript.",
+    "main": "src/container.ts",
+    "scripts": {
+        "test": "jest",
+        "build": "tsc src/container.ts",
+        "clean": "rm src/container.js",
+        "lint": "eslint . --ext .ts",
+        "docs": "npm run build && jsdoc2md src/container.js > docs.md && npm run clean"
+    },
+    "author": {
+        "name": "Fabio Costa",
+        "url": "https://github.com/fab1o"
+    },
+    "license": "ISC",
+    "devDependencies": {
+        "@types/jest": "29.5.3",
+        "@typescript-eslint/eslint-plugin": "6.0.0",
+        "@typescript-eslint/parser": "6.0.0",
+        "eslint": "8.45.0",
+        "jest": "29.6.1",
+        "jsdoc-to-markdown": "8.0.0",
+        "ts-jest": "29.1.1",
+        "typescript": "5.1.6"
+    }
+}
