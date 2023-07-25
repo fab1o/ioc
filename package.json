@@ -1,5 +1,5 @@
 {
-    "name": "ioc",
+    "name": "@fab1o/ioc",
     "version": "0.0.1",
     "description": "IoC container for TypeScript",
     "main": "src/container.ts",
