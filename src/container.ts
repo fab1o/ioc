@@ -10,7 +10,8 @@ type Instance<T> = T;
 interface Config<T> {
     type?: Class<T>;
     instance?: Instance<T>;
-    singleton?: boolean;
+    singleton: boolean;
+    dependencies: Array<string>;
 }
 
 /**
@@ -27,27 +28,59 @@ export class Container {
      * @param {Function} type
      * @param {Object} [options]
      * @param {Boolean} [options.singleton=false]
+     * @param {Array<String>} [options.dependencies=[]]
      * @returns {Object}
      */
     public register<T>(
         name: string,
         type: Class<T>,
-        options: { singleton: boolean } = { singleton: false }
+        options: { singleton?: boolean; dependencies?: Array<string> } = {
+            singleton: false,
+            dependencies: [],
+        }
     ) {
         if (this.registry.has(name)) {
             throw Error(`Already exists in registry: ${name}`);
         }
 
-        const { singleton } = options;
+        const { singleton = false, dependencies = [] } = options;
+
+        const isCirular = this.checkDependencies(name, dependencies);
+
+        if (isCirular) {
+            throw Error('Circular dependency');
+        }
 
         const config: Config<T> = {
             type,
             singleton,
+            dependencies,
         };
 
         this.registry.set(name, config);
 
         return config;
+    }
+
+    private checkDependencies(parentDep, dependencies: Array<string>) {
+        for (const name of dependencies) {
+            const dependency = this.registry.get(name);
+
+            if (dependency) {
+                const isCircular = dependency.dependencies.includes(parentDep);
+
+                if (isCircular) {
+                    return true;
+                }
+
+                return this.checkDependencies(
+                    parentDep,
+                    dependency.dependencies
+                );
+            }
+
+            return false;
+        }
     }
 
     /**
@@ -63,11 +96,17 @@ export class Container {
 
         const config: Config<T> = {
             instance,
+            singleton: false,
+            dependencies: [],
         };
 
         this.registry.set(name, config);
 
         return config;
+    }
+
+    private getDependencies<T>(dependency: Config<T>) {
+        return dependency.dependencies.map((dep) => this.get(dep));
     }
 
     /**
@@ -92,7 +131,8 @@ export class Container {
             if (singleton) {
                 // creating instance only once
                 if (typeof type !== 'undefined') {
-                    dependency.instance = new type();
+                    const dependencies = this.getDependencies<T>(dependency);
+                    dependency.instance = new type(...dependencies);
                 }
 
                 if (typeof dependency.instance !== 'undefined') {
@@ -101,7 +141,8 @@ export class Container {
             } else {
                 // creating instance
                 if (typeof type !== 'undefined') {
-                    return new type();
+                    const dependencies = this.getDependencies<T>(dependency);
+                    return new type(...dependencies);
                 }
             }
         }

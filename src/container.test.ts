@@ -19,7 +19,9 @@ describe('Container', () => {
         interface Ball {}
         class Volleyball implements Ball {}
 
-        container.register<Ball>(Volleyball.name, Volleyball, { singleton: true });
+        container.register<Ball>(Volleyball.name, Volleyball, {
+            singleton: true,
+        });
 
         expect(container.get<Ball>(Volleyball.name)).toBe(
             container.get(Volleyball.name)
@@ -83,5 +85,177 @@ describe('Container', () => {
         expect(() => container.get(name)).toThrow(
             `Type and instance not defined: ${name}`
         );
+    });
+
+    test('should resolve dependencies of a dependency', () => {
+        interface Ilogger {}
+        interface Ball {}
+        class Volleyball implements Ball {
+            public logger: Ilogger;
+
+            public constructor(logger) {
+                this.logger = logger;
+            }
+        }
+
+        class Logger implements Ilogger {}
+
+        const dependencies = ['Logger'];
+
+        container.register<Ilogger>('Logger', Logger);
+
+        container.register<Ball>('Volleyball', Volleyball, { dependencies });
+
+        const volleyball = container.get<Volleyball>('Volleyball');
+
+        expect(volleyball.logger).toBeInstanceOf(Logger);
+    });
+
+    test('should resolve singleton dependencies of a dependency', () => {
+        interface Ilogger {}
+        interface Ball {}
+        class Volleyball implements Ball {
+            public logger: Ilogger;
+
+            public constructor(logger) {
+                this.logger = logger;
+            }
+        }
+
+        class Logger implements Ilogger {}
+
+        const dependencies = ['Logger'];
+
+        container.register<Ilogger>('Logger', Logger, { singleton: true });
+
+        container.register<Ball>('Volleyball', Volleyball, { dependencies });
+
+        const volleyball = container.get<Volleyball>('Volleyball');
+
+        expect(volleyball.logger).toBeInstanceOf(Logger);
+    });
+
+    test('should resolve arbitrary depths of dependencies of a dependency', () => {
+        interface Ilogger {}
+        interface Ball {
+            net: INet;
+        }
+        interface INet {
+            logger: Ilogger;
+        }
+        class Volleyball implements Ball {
+            public net: INet;
+
+            public constructor(net: INet) {
+                this.net = net;
+            }
+        }
+
+        class Net implements INet {
+            public logger: Ilogger;
+
+            public constructor(logger: Ilogger) {
+                this.logger = logger;
+            }
+        }
+
+        class Logger implements Ilogger {
+            public constructor() {}
+        }
+
+        container.register<Ilogger>('Logger', Logger);
+
+        container.register<INet>('Net', Net, {
+            dependencies: ['Logger'],
+        });
+
+        container.register<Ball>('Volleyball', Volleyball, {
+            dependencies: ['Net'],
+        });
+
+        const volleyball = container.get<Volleyball>('Volleyball');
+
+        expect(volleyball.net).toBeInstanceOf(Net);
+        expect(volleyball.net.logger).toBeInstanceOf(Logger);
+    });
+
+    test('should not resolve circular dependency', () => {
+        interface Ball {
+            net: INet;
+        }
+        interface INet {
+            ball: Ball;
+        }
+        class Volleyball implements Ball {
+            public net: INet;
+
+            public constructor(net: INet) {
+                this.net = net;
+            }
+        }
+
+        class Net implements INet {
+            public ball: Ball;
+
+            public constructor(volleyball: Ball) {
+                this.ball = volleyball;
+            }
+        }
+
+        container.register<INet>('Net', Net, {
+            dependencies: ['Volleyball'],
+        });
+
+        expect(() => {
+            container.register<Ball>('Volleyball', Volleyball, {
+                dependencies: ['Net'],
+            });
+        }).toThrow('Circular dependency');
+    });
+
+    test('should not resolve circular dependency with more depth', () => {
+        interface Ball {
+            net: INet;
+        }
+        interface INet {
+            antenna: Antenna;
+        }
+        class Volleyball implements Ball {
+            public net: INet;
+
+            public constructor(net: INet) {
+                this.net = net;
+            }
+        }
+
+        class Net implements INet {
+            public antenna: Antenna;
+
+            public constructor(antenna: Antenna) {
+                this.antenna = antenna;
+            }
+        }
+
+        class Antenna {
+            public ball: Ball;
+
+            public constructor(volleyball: Ball) {
+                this.ball = volleyball;
+            }
+        }
+
+        container.register<Antenna>('Antenna', Antenna, {
+            dependencies: ['Volleyball'],
+        });
+
+        container.register<INet>('Net', Net, {
+            dependencies: ['Antenna'],
+        });
+
+        expect(() => {
+            container.register<Ball>('Volleyball', Volleyball, {
+                dependencies: ['Net'],
+            });
+        }).toThrow('Circular dependency');
     });
 });
